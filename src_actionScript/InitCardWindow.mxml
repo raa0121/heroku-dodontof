@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8"?>
+<torgtaitai:CommonPopupWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+                xmlns:torgtaitai="*" 
+                width="500" height="340"
+                title="カード初期化画面" 
+                showCloseButton="true"
+                close="PopUpManager.removePopUp(this)"
+                >
+  
+  <mx:Box height="100%" width="100%">
+      
+    <mx:HBox height="30" width="100%">
+      <mx:CheckBox id="trump" label="トランプ" selected="false" change="changeTrumpCheck()" />
+      <mx:Label text="デッキ個数:" />
+      <mx:NumericStepper id="deckCount" minimum="1" maximum="10" value="1" enabled="false" />
+      <mx:Label text="ジョーカー枚数:" />
+      <mx:NumericStepper id="jorkerCount" minimum="0" maximum="3" value="0" enabled="false" />
+    </mx:HBox>
+    
+    <mx:Box id="checkBoxPlace" height="100%" width="100%" />
+    
+    <mx:HBox height="30" width="100%">
+      <mx:CheckBox id="randomDungeonTrumpCheck" label="ランダムダンジョン用トランプ（アリアンロッド等）" selected="false" change="changeRandomDungeonTrumpCheck()" />
+    </mx:HBox>
+    <mx:HBox height="30" width="100%">
+      <mx:Spacer width="20" />
+      <mx:Label text="Aを含めた枚数:" />
+      <mx:NumericStepper id="randomDungeonCardCount" minimum="1" maximum="{49 + randomDungeonJorkerCount.value}" value="1" enabled="false" />
+      <mx:Label text="ジョーカー枚数:" />
+      <mx:NumericStepper id="randomDungeonJorkerCount" minimum="0" maximum="3" value="0" enabled="false" />
+    </mx:HBox>
+    
+    <mx:HBox height="25" width="100%" horizontalAlign="center" verticalAlign="middle">
+      <mx:Button id="executeButton" label="シャッフルして初期配置へ" click="execute()" enabled="true" />
+      <mx:Button label="キャンセル" click="PopUpManager.removePopUp(this)" />
+    </mx:HBox>
+    
+    <mx:Spacer height="100%" width="100%" />
+  </mx:Box>
+  
+  <mx:Script>
+    <![CDATA[
+    import mx.containers.TitleWindow;
+    import mx.managers.PopUpManager;
+    import mx.events.FlexEvent;
+    import mx.controls.Alert;
+    import mx.events.CloseEvent;
+       
+    static private var cardInfos:Array = new Array();
+    private var checkBoxes:Object = new Object();
+       
+    override protected function setup():void {
+        initCardTypes();
+    }
+    
+    static private var cardTypeTrump:String = "trump_swf";
+    static private var randomDungeonTrump:String = "randomDungeonTrump";
+    
+    private var gropuBoxes:Object = new Object();
+    
+    static private function isTrump(cardType:String):Boolean {
+        return ( cardType == cardTypeTrump );
+    }
+    
+    static public function setCardInfos(infos:Array):void {
+        cardInfos = Utils.clone(infos);
+    }
+    
+    static public function getCardName(mountName:String):String {
+        var info:Object = getCardInfo(mountName);
+        
+        var cardName:String = info.title;
+        
+        if( cardName == null ) {
+            cardName = "";
+        }
+        
+        return cardName;
+    }
+    
+    static public function getCardInfo(cardType:String):Object {
+        for(var i:int = 0 ; i < cardInfos.length ; i++) {
+            var cardInfo:Object = cardInfos[i];
+            if( cardInfo.type == cardType ) {
+                return cardInfo;
+            }
+        }
+        
+        return new Object();
+    }
+    
+    private function initCardTypes():void {
+        for(var i:int = 0 ; i < cardInfos.length ; i++) {
+            var cardInfo:Object = cardInfos[i];
+            var cardType:String = cardInfo.type;
+            var cardName:String = cardInfo.title;
+
+            if( isTrump(cardType) ) {
+                continue;
+            }
+            
+            if( cardType == randomDungeonTrump ) {
+                continue;
+            }
+            
+            var checkBox:CheckBox = new CheckBox();
+            checkBox.id = cardType;
+            checkBox.label = getPrefixExclideText(cardName);
+            
+            checkBoxes[cardType] = checkBox;
+            
+            if( isGroupCardType(cardType) ) {
+                addGropBox(cardType, checkBox);
+            } else {
+                checkBoxPlace.addChild( checkBox );
+            }
+        }
+    }
+    
+    private function isGroupCardType(cardType:String):Boolean {
+        return (getPrefix(cardType) != "");
+    }
+    
+    private function addGropBox(cardType:String, checkBox:CheckBox):void {
+        var prefix:String = getPrefix(cardType);
+        
+        var box:HBox = this.gropuBoxes[prefix];
+        
+        if( box == null ) {
+            this.gropuBoxes[prefix] = new HBox();
+            box = this.gropuBoxes[prefix];
+            
+            var cardName:String = getCardName(cardType);
+            
+            var label:Label = new Label();
+            label.text = getPrefix( cardName );
+            Log.logging("getCardInfo(cardType)", getCardInfo(cardType));
+            
+            checkBoxPlace.addChild( label );
+            checkBoxPlace.addChild( box );
+
+            var blank:Label = new Label();
+            blank.text = getPrefix( "  " );
+            box.addChild( blank );
+        }
+        
+        box.addChild( checkBox );
+    }
+    
+    private function getPrefix(cardType:String):String {
+        var index:int = cardType.indexOf(":");
+        
+        if( index == -1 ) {
+            return "";
+        }
+        
+        return cardType.substr(0, index);
+    }
+    
+    private function getPrefixExclideText(text:String):String {
+        var index:int = text.indexOf(":");
+        
+        if( index == -1 ) {
+            return text;
+        }
+        
+        return text.substr( (index + 1) );
+    }
+    
+    private function changeTrumpCheck():void {
+        deckCount.enabled = trump.selected;
+        jorkerCount.enabled = trump.selected;
+    }
+       
+    private function changeRandomDungeonTrumpCheck():void {
+        randomDungeonCardCount.enabled = randomDungeonTrumpCheck.selected;
+        randomDungeonJorkerCount.enabled = randomDungeonTrumpCheck.selected;
+    }
+       
+    private function checkAndAddCardInfos(cardInitInfos:Array, cardType:String):void {
+           
+        var checkBox:CheckBox = checkBoxes[cardType];
+           
+        if( checkBox == null ) {
+            return;
+        }
+        if( ! checkBox.selected ) {
+            return;
+        }
+        
+        cardInitInfos.push( {'mountName': cardType } );
+    }
+       
+    public function execute():void {
+        var thisObj:InitCardWindow = this;
+           
+        var result:Alert = Alert.show("現在使用しているカードは全て破棄されます。\nよろしいですか？", "カード初期化確認", 
+                                      Alert.OK | Alert.CANCEL, null, 
+                                      function(e : CloseEvent) : void {
+                                          if (e.detail == Alert.OK) {
+                                              thisObj.initCards();
+                                          }});           
+    }
+    
+    private function getCardInitInfos():Array {
+        var cardInitInfos:Array = [];
+        
+        if( trump.selected ) {
+            cardInitInfos.push( {'mountName':cardTypeTrump,
+                                 'useLineCount':(52 + jorkerCount.value),
+                                 "deckCount": deckCount.value} );
+        }
+        
+        if( randomDungeonTrumpCheck.selected ) {
+            cardInitInfos.push( {'mountName': randomDungeonTrump,
+                                 'cardCount': randomDungeonCardCount.value,
+                                 'jorkerCount': randomDungeonJorkerCount.value} );
+        }
+        
+        for(var i:int = 0 ; i < cardInfos.length ; i++) {
+            var cardInfo:Object = cardInfos[i];
+            var cardType:String = cardInfo.type;
+            
+            if( isTrump(cardType) ) {
+                continue;
+            }
+            
+            if( cardType == randomDungeonTrump ) {
+                continue;
+            }
+            
+            checkAndAddCardInfos(cardInitInfos, cardType);
+        }
+        
+        return cardInitInfos;
+    }
+    
+    public function initCards():void {
+        try{
+            var cardInitInfos:Array = getCardInitInfos();
+               
+            DodontoF_Main.getInstance().initCards( cardInitInfos );
+            PopUpManager.removePopUp(this);
+        } catch(error:Error) {
+            this.status = error.message;
+        }
+    }
+       
+    ]]>
+  </mx:Script>
+  
+</torgtaitai:CommonPopupWindow>
