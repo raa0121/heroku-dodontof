@@ -1,0 +1,20 @@
+E, [2013-01-24T16:56:05.467569 #2894] ERROR -- : errorMessage:e.to_s : 
+e.inspect : Interrupt
+$@ : /usr/lib/ruby/1.9.1/cgi/core.rb:600:in `readlines'
+/usr/lib/ruby/1.9.1/cgi/core.rb:600:in `readlines'
+/usr/lib/ruby/1.9.1/cgi/core.rb:600:in `read_from_cmdline'
+/usr/lib/ruby/1.9.1/cgi/core.rb:645:in `initialize_query'
+/usr/lib/ruby/1.9.1/cgi/core.rb:806:in `initialize'
+DodontoFServer.rb:116:in `new'
+DodontoFServer.rb:116:in `getRequestData'
+DodontoFServer.rb:848:in `analyzeWebInterfaceCatched'
+DodontoFServer.rb:832:in `analyzeWebInterface'
+DodontoFServer.rb:819:in `getResponseTextWhenNoCommandName'
+DodontoFServer.rb:718:in `analyzeCommand'
+DodontoFServer.rb:6036:in `getResponse'
+DodontoFServer.rb:6117:in `printResult'
+DodontoFServer.rb:6088:in `main'
+DodontoFServer.rb:6201:in `executeDodontoServerCgi'
+DodontoFServer.rb:6207:in `<main>'
+$! : 
+

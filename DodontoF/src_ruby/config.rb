@@ -62,7 +62,7 @@ $UPLOAD_REPALY_DATA_MAX_SIZE = 5.0
 $UPLOAD_FILE_MAX_SIZE = 10.0
 
 #プレイルームデータ(saveData)の相対パス。
-$SAVE_DATA_DIR = "../.."
+$SAVE_DATA_DIR = ".."
 
 #ロックファイル作成先のチューニング用。nilなら $SAVE_DATA_DIR と同一になります。
 $SAVE_DATA_LOCK_FILE_DIR = nil

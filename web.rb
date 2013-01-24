@@ -3,11 +3,15 @@ load 'DodontoF/DodontoFServer.rb'
 require 'sinatra/base'
 
 class DodontoFApp < Sinatra::Base
-  
   get '/DodontoF/DodontoF.swf' do
-    send_file File.expand_path("DodontoF",__FILE__),
-        :type => 'application/x-shockwave-flash', :dispositon => 'inline' \
-      rescue raise(Sinatra::NotFound)
+    content_type :swf
+    send_file "DodontoF/DodontoF.swf"
+  end
+  post '/DodontoF/DodontoFServer.rb' do
+    `cd DodontoF;ruby DodontoFServer.rb #{params[:obj]}`
+  end
+  get '/DodontoF/DodontoFServer.rb' do
+    `cd DodontoF;ruby DodontoFServer.rb #{params[:obj]}`
   end
 end
 
