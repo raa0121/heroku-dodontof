@@ -8,6 +8,7 @@ require 'wx/classes/timer.rb'
 require 'bcdiceCore.rb'
 require 'ArgsAnalizer.rb'
 require 'IniFile.rb'
+require 'diceBot/DiceBotLoader'
 
 $LOAD_PATH << File.dirname(__FILE__) + "/irc"
 require 'ircLib.rb'
@@ -19,9 +20,11 @@ class BCDiceGuiApp < Wx::App
   private
 
   def on_init
+    DiceBotLoader.setBcDicePath( 'src' )
     BCDiceDialog.new.show_modal
     return false
   end
+  
 end
 
 $debugText = nil
@@ -50,8 +53,8 @@ class BCDiceDialog < Wx::Dialog
     @channel = createAddedTextInput( $defaultLoginChannelsText, "ログインチャンネル" )
     @nickName = createAddedTextInput( $nick, "ニックネーム" )
     initGameType
+    initCharacterCode
     @extraCardFileText = createAddedTextInput( $extraCardFileName, "拡張カードファイル名" )
-    @ircCodeText = createAddedTextInput( $ircCode, "IRC文字コード" )
     
     @executeButton = createButton('接続')
     evt_button(@executeButton.get_id) {|event| on_execute }
@@ -59,7 +62,7 @@ class BCDiceDialog < Wx::Dialog
     @stopButton = createButton('切断')
     @stopButton.enable(false)
     evt_button(@stopButton.get_id) {|event| on_stop }
-
+    
     addCtrlOnLine( @executeButton, @stopButton)
     
     
@@ -139,15 +142,15 @@ class BCDiceDialog < Wx::Dialog
     loadTextValueFromIniFile(sectionName, "portNo", @portNo)
     loadTextValueFromIniFile(sectionName, "channel", @channel)
     loadTextValueFromIniFile(sectionName, "nickName", @nickName)
+    loadChoiseValueFromIniFile(sectionName, "gameType", @gameType)
+    loadChoiseValueFromIniFile(sectionName, "characterCode", @characterCode)
     loadTextValueFromIniFile(sectionName, "extraCardFileText", @extraCardFileText)
-    loadTextValueFromIniFile(sectionName, "ircCodeText", @ircCodeText)
+    
+    @iniFile.write("default", "serverSet", serverSet)
   end
   
   def loadTextValueFromIniFile(section, key, input)
-    debug('loadTextValueFromIniFile begin')
     value = @iniFile.read(section, key)
-    debug('value', value)
-    
     return if( value.nil? )
     
     input.set_value( value )
@@ -159,6 +162,13 @@ class BCDiceDialog < Wx::Dialog
     return "#{@@serverSertPrefix}#{serverSet}"
   end
   
+  def loadChoiseValueFromIniFile(section, key, choise)
+    value = @iniFile.read(section, key)
+    return if( value.nil? )
+    
+    setChoiseText(choise, value)
+  end
+  
 
   def on_save
     debug( 'on_save begin')
@@ -168,18 +178,18 @@ class BCDiceDialog < Wx::Dialog
     sectionName = getServerSetSectionName(serverSet)
     debug( 'sectionName', sectionName )
     
-    saveTextValueToIniFile(sectionName, "serverName", @serverName)
-    saveTextValueToIniFile(sectionName, "portNo", @portNo)
-    saveTextValueToIniFile(sectionName, "channel", @channel)
-    saveTextValueToIniFile(sectionName, "nickName", @nickName)
-    saveTextValueToIniFile(sectionName, "extraCardFileText", @extraCardFileText)
-    saveTextValueToIniFile(sectionName, "ircCodeText", @ircCodeText)
+    saveTextValueToIniFile(sectionName, "serverName", @serverName.get_value)
+    saveTextValueToIniFile(sectionName, "portNo", @portNo.get_value)
+    saveTextValueToIniFile(sectionName, "channel", @channel.get_value)
+    saveTextValueToIniFile(sectionName, "nickName", @nickName.get_value)
+    saveTextValueToIniFile(sectionName, "gameType", @gameType.get_string_selection)
+    saveTextValueToIniFile(sectionName, "characterCode", @characterCode.get_string_selection)
+    saveTextValueToIniFile(sectionName, "extraCardFileText", @extraCardFileText.get_value)
     
     initServerSetChoiseList
   end
   
-  def saveTextValueToIniFile(section, key, input)
-    value = input.get_value
+  def saveTextValueToIniFile(section, key, value)
     @iniFile.write(section, key, value)
   end
   
@@ -261,11 +271,19 @@ class BCDiceDialog < Wx::Dialog
     
     @gameType.insert( "NonTitle", 0 )
     
-    index = gameTypes.index($defaultGameType)
-    index ||= 0
-    @gameType.set_selection(index)
+    setChoiseText(@gameType, $defaultGameType) 
     
     evt_choice(@gameType.get_id) { |event| onChoiseGame }
+  end
+  
+  def setChoiseText(choise, text)
+    index = choise.find_string(text)
+    
+    if( index == -1 )
+      index = 0
+    end
+    
+    return choise.set_selection(index)
   end
   
   def getAllGameTypes
@@ -273,8 +291,11 @@ class BCDiceDialog < Wx::Dialog
 Arianrhod
 ArsMagica
 BarnaKronika
+BloodCrusade
+CardRanker
 ChaosFlare
 Chill
+CrashWorld
 Cthulhu
 CthulhuTech
 DarkBlaze
@@ -294,6 +315,7 @@ MagicaLogia
 MeikyuDays
 MeikyuKingdom
 MonotoneMusium
+NJSLYRBATTLE
 Nechronica
 NightWizard
 NightmareHunterDeep
@@ -304,10 +326,13 @@ PhantasmAdventure
 RokumonSekai2
 RoleMaster
 RuneQuest
+Ryutama
 SataSupe
 ShadowRun
 ShadowRun4
+ShinkuuGakuen
 ShinobiGami
+SMTKakuseihen
 SwordWorld
 SwordWorld2.0
 TORG
@@ -322,6 +347,46 @@ ZettaiReido
   def onChoiseGame
     return if( @ircBot.nil? )
     @ircBot.setGameByTitle( @gameType.get_string_selection )
+  end
+  
+  
+  
+  @@characterCodeInfo = {
+    'ISO-2022-JP' => Kconv::JIS,
+    'EUC-JP'      => Kconv::EUC,
+    'Shift_JIS'   => Kconv::SJIS,
+    'バイナリ'    => Kconv::BINARY,
+    'ASCII'       => Kconv::ASCII,
+    'UTF-8'       => Kconv::UTF8,
+    'UTF-16'      => Kconv::UTF16,
+  }
+  
+  def initCharacterCode
+    @characterCode = Wx::Choice.new(self, -1)
+    addCtrl(@characterCode, "IRC文字コード")
+    
+    list = @@characterCodeInfo.keys.sort
+    
+    list.each_with_index do |type, index|
+      @characterCode.insert( type, index )
+    end
+    
+    found = @@characterCodeInfo.find{|key, value| value == $ircCode}
+    unless( found.nil? )
+      codeText = found.first
+      setChoiseText(@characterCode, codeText)
+    end
+    
+    evt_choice(@characterCode.get_id) { |event| onChoiseCharacterCode }
+  end
+  
+  def onChoiseCharacterCode
+    $ircCode = getSelectedCharacterCode
+  end
+  
+  def getSelectedCharacterCode
+    codeName = @characterCode.get_string_selection
+    return @@characterCodeInfo[codeName]
   end
   
   def addTestTextBoxs
@@ -417,8 +482,8 @@ ZettaiReido
     $defaultLoginChannelsText = @channel.get_value
     $nick = @nickName.get_value
     $defaultGameType = @gameType.get_string_selection
+    $ircCode = getSelectedCharacterCode
     $extraCardFileName = @extraCardFileText.get_value
-    $ircCode = @ircCodeText.get_value
   end
   
   def startIrcBot
@@ -457,6 +522,11 @@ ZettaiReido
     @testOutput.append_text( "#{message}\r\n" )
   end
   
+  def close(force = false)
+    on_stop
+    super
+  end
+  
   def on_stop
     return if( @ircBot.nil? )
     
@@ -476,8 +546,13 @@ ZettaiReido
   
   
   def loadSaveData
-    index = 0
-    @serverSetChoise.set_selection(index)
+    serverName = @iniFile.read("default", "serverSet")
+    if( serverName.nil? )
+      @serverSetChoise.set_selection(0)
+    else
+      setChoiseText(@serverSetChoise, serverName)
+    end
+    on_load
   end
   
 end

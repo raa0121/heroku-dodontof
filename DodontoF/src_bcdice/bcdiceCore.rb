@@ -33,14 +33,12 @@ require 'kconv'
 # 終了時はボットにTalkで「お疲れ様」と発言します。($quitCommandで変更出来ます。)
 #====================================================================
 
-
 def decode(code, str)
-  return str;
+  return str.kconv(code)
 end
 
 def encode(code, str)
-  #return str;
-  Kconv.kconv(str, code)
+  return Kconv.kconv(str, code)
 end
 
 
@@ -51,6 +49,7 @@ $point_counter = {};
 
 
 require 'CardTrader'
+require 'TableFileData'
 require 'diceBot/DiceBot'
 require 'dice/AddDice'
 require 'dice/UpperDice'
@@ -65,6 +64,7 @@ class BCDiceMaker
     @cardTrader.initValues;
     
     @counterInfos = {};
+    @tableFileData = TableFileData.new
     
     @master = "";
     @quitFunction = nil
@@ -73,9 +73,10 @@ class BCDiceMaker
   attr_accessor :master
   attr_accessor :quitFunction
   attr_accessor :diceBot
+  attr_accessor :diceBotPath
   
   def newBcDice
-    bcdice = BCDice.new(self, @cardTrader, @diceBot, @counterInfos)
+    bcdice = BCDice.new(self, @cardTrader, @diceBot, @counterInfos, @tableFileData)
     
     return bcdice
   end
@@ -85,7 +86,7 @@ end
 
 class BCDice
   
-  def initialize(parent, cardTrader, diceBot, counterInfos)
+  def initialize(parent, cardTrader, diceBot, counterInfos, tableFileData)
     @parent = parent
     
     setDiceBot(diceBot)
@@ -93,17 +94,26 @@ class BCDice
     @cardTrader = cardTrader
     @cardTrader.setBcDice(self)
     @counterInfos = counterInfos
+    @tableFileData = tableFileData
     
-
     @nick_e = ""
     @tnick = ""
     @isMessagePrinted = false
     @rands = nil
     @isKeepSecretDice = true
+    @randResults = nil
+  end
+  
+  def setDir(dir, prefix)
+    @tableFileData.setDir(dir, prefix)
   end
   
   def isKeepSecretDice(b)
     @isKeepSecretDice = b
+  end
+  
+  def getGameType
+    @diceBot.gameType
   end
   
   def setDiceBot(diceBot)
@@ -302,7 +312,7 @@ class BCDice
     sendMessageToChannels(messages);
   end
   
-
+  
   def isMaster()
     return ((@nick_e == @parent.master) or (@parent.master == ""))
   end
@@ -318,8 +328,8 @@ class BCDice
     
     sendMessageToChannels("ViewMode#{@diceBot.sendMode}に変更しました");
   end
-
-
+  
+  
   def setUpplerRollThreshold()
     return unless( isMaster() )
     
@@ -332,7 +342,7 @@ class BCDice
       sendMessageToChannels("上方無限ロールの閾値設定を解除しました");
     end
   end
-
+  
   def setRerollLimit()
     return unless( isMaster() )
     
@@ -345,8 +355,8 @@ class BCDice
       sendMessageToChannels("個数振り足しロールの回数を無限に設定しました");
     end
   end
-
-
+  
+  
   def setDataSendMode()
     return unless( isMaster() )
     
@@ -366,8 +376,8 @@ class BCDice
     
     sendMessageToChannels(output)
   end
-
-
+  
+  
   def setSortMode()
     return unless( isMaster() )
     
@@ -381,7 +391,7 @@ class BCDice
       sendMessageToChannels("ソート無しに変更しました")
     end
   end
-
+  
   def setCardMode()
     return unless( isMaster() )
     
@@ -465,7 +475,7 @@ class BCDice
     
     debug("executePointCounter end")
   end
-
+  
   def addPlot(arg)
     debug("addPlot begin arg", arg)
     
@@ -503,8 +513,8 @@ class BCDice
     output_msg = "GameType = " + @diceBot.gameType + ", ViewMode = " + @diceBot.sendMode + ", Sort = " + @diceBot.sortType;
     sendMessageToOnlySender(output_msg);
   end
-
-
+  
+  
   def printHelp()
     
     sendMessageToOnlySender("・加算ロール　　　　　　　　(xDn) (n面体ダイスをx個)");
@@ -544,7 +554,7 @@ class BCDice
     sendMessageToOnlySender("・カード機能ヘルプ　　　　　　(c-help)");
     sendMessageToOnlySender("  -- END ---");
   end
-
+  
   def setChannel(channel)
     debug("setChannel called channel", channel)
     @channel = channel
@@ -574,8 +584,8 @@ class BCDice
     end
     
     if(/(^|\s+)#{$OPEN_DICE}(\s+|$)/i =~ @message)
-        # シークレットロールの表示
-        printSecretRoll()
+      # シークレットロールの表示
+      printSecretRoll()
     end
     
     # ポイントカウンター関係
@@ -599,7 +609,7 @@ class BCDice
     executeCard
     
     unless( @isMessagePrinted ) # ダイスロール以外の発言では捨てダイス処理を
-      rand 100 if($isRollVoidDiceAtAnyRecive);
+      # rand 100 if($isRollVoidDiceAtAnyRecive);
     end
     
     debug("\non_public end")
@@ -714,15 +724,15 @@ class BCDice
     @cardTrader.setTnick( @tnick )
     @cardTrader.executeCard(@message, @channel)
     debug('executeCard end')
-  end  
+  end
   
-###########################################################################
-#**                         各種コマンド処理
-###########################################################################
-
-#=========================================================================
-#**                           コマンド分岐
-#=========================================================================
+  ###########################################################################
+  #**                         各種コマンド処理
+  ###########################################################################
+  
+  #=========================================================================
+  #**                           コマンド分岐
+  #=========================================================================
   def dice_command   # ダイスコマンドの分岐処理
     arg = @message.upcase
     output_msg = '1';
@@ -750,7 +760,7 @@ class BCDice
       output_msg = dice.rollDice(arg)
       if( /S[-\d]+D[\d+-]+/ =~ arg )     # 隠しロール
         secret_flg = true if(output_msg != '1');
-        end
+      end
       
     when /[\d]+B[\d]+([<>=]+[\d]+)?($|\s)/i
       debug("バラバラロール検出")
@@ -786,20 +796,64 @@ class BCDice
         secret_flg = true if(output_msg != '1');
       end
       
-    when /((^|\s)(S)?choise\[[^,]+(,[^,]+)+\]($|\s))/i
+    when /((^|\s)(S)?choice\[[^,]+(,[^,]+)+\]($|\s))/i
       debug("選択コマンド")
-      debug("execute choise")
+      debug("execute choice")
       
       secretMarker = $3
-      output_msg = choise_random($1)
+      output_msg = choice_random($1)
       if( secretMarker )   # 隠しロール
         secret_flg = true if(output_msg != '1');
       end
+    else
+      output_msg, secret_flg = getTableDataResult(arg)
+      return output_msg, secret_flg if(output_msg != '1');
     end
     
     debug("arg", arg)
     
     return output_msg, secret_flg;
+  end
+  
+  
+  def getTableDataResult(arg)
+    debug("getTableDataResult Begin")
+    
+    output_msg = '1'
+    secret_flg = false
+    
+    dice, title, table, secret_flg = @tableFileData.getTableData(arg, @diceBot.gameType)
+    debug("dice", dice)
+    
+    if( table.nil? )
+      debug("table is null")
+      return output_msg, secret_flg
+    end
+    
+    value = 0
+    
+    case dice
+    when /D66/i
+      value = getD66Value(0)
+    when /(\d+)D(\d+)/i
+      diceCount = $1
+      diceMax = $2
+      value, = roll(diceCount, diceMax)
+    else
+      table = []
+    end
+    
+    debug("value", value)
+    
+    key, result_msg = table.find{|i| i.first === value}
+    
+    if( result_msg.nil? )
+      return output_msg, secret_flg
+    end
+    
+    output_msg = "#{nick_e}:#{title}(#{value}) ＞ #{result_msg}"
+    
+    return output_msg, secret_flg
   end
   
   
@@ -814,7 +868,7 @@ class BCDice
     
     total = 0;
     dice_str = "";
-    cnt1 = 0;
+    numberSpot1 = 0;
     cnt_max = 0;
     n_max = 0;
     cnt_suc = 0;
@@ -835,64 +889,66 @@ class BCDice
       dice_max += 1
     end
     
-    if( (dice_cnt <= $DICE_MAXCNT) and (dice_max <= $DICE_MAXNUM) )
-      dice_cnt.times do |i|
-        i += 1
-        dice_now = 0;
-        dice_n = 0;
-        dice_st_n = "";
-        round = 0;
-        
-        begin
-          if( round >= 1 )
-            # 振り足し時のダイス読み替え処理用（ダブルクロスはクリティカルでダイス10に読み替える)
-            dice_now += @diceBot.getJackUpValueOnAddRoll(dice_n)
-          end
-          
-          dice_n = rand(dice_max).to_i + 1;
-          dice_n -=1 if( d9_on );
-          
-          dice_now += dice_n;
-          
-          debug('@diceBot.sendMode', @diceBot.sendMode)
-          if( @diceBot.sendMode >= 2 ) 
-            dice_st_n += "," unless( dice_st_n.empty? );
-            dice_st_n += "#{dice_n}";
-          end
-          round += 1
-          
-        end while( (dice_add > 1) and (dice_n >= dice_add) );
-        
-        total +=  dice_now;
-        
-        if( dice_ul != '' )
-          suc = check_hit(dice_now, dice_ul, dice_diff);
-          cnt_suc += suc;
-        end
-        
-        if( dice_re )
-          cnt_re += 1 if(dice_now >= dice_re);
-        end
-        
-        if( (@diceBot.sendMode >= 2) and (round >= 2) )
-          dice_result.push( "#{dice_now}[#{dice_st_n}]" );
-        else
-          dice_result.push( dice_now )
-        end
-        
-        cnt1 += 1 if( dice_now == 1 );
-        cnt_max += 1 if( dice_now == dice_max );
-        n_max = dice_now if( dice_now > n_max);
-      end
-      
-      if( dice_sort != 0 )
-        dice_str = dice_result.sort_by{|a| dice_num(a)}.join(",")
-      else
-        dice_str = dice_result.join(",");
-      end
-      
-      return total, dice_str, cnt1, cnt_max, n_max, cnt_suc, cnt_re;
+    unless( (dice_cnt <= $DICE_MAXCNT) and (dice_max <= $DICE_MAXNUM) )
+      return total, dice_str, numberSpot1, cnt_max, n_max, cnt_suc, cnt_re;
     end
+    
+    dice_cnt.times do |i|
+      i += 1
+      dice_now = 0;
+      dice_n = 0;
+      dice_st_n = "";
+      round = 0;
+      
+      begin
+        if( round >= 1 )
+          # 振り足し時のダイス読み替え処理用（ダブルクロスはクリティカルでダイス10に読み替える)
+          dice_now += @diceBot.getJackUpValueOnAddRoll(dice_n)
+        end
+        
+        dice_n = rand(dice_max).to_i + 1;
+        dice_n -=1 if( d9_on );
+        
+        dice_now += dice_n;
+        
+        debug('@diceBot.sendMode', @diceBot.sendMode)
+        if( @diceBot.sendMode >= 2 )
+          dice_st_n += "," unless( dice_st_n.empty? );
+          dice_st_n += "#{dice_n}";
+        end
+        round += 1
+        
+      end while( (dice_add > 1) and (dice_n >= dice_add) );
+      
+      total +=  dice_now;
+      
+      if( dice_ul != '' )
+        suc = check_hit(dice_now, dice_ul, dice_diff);
+        cnt_suc += suc;
+      end
+      
+      if( dice_re )
+        cnt_re += 1 if(dice_now >= dice_re);
+      end
+      
+      if( (@diceBot.sendMode >= 2) and (round >= 2) )
+        dice_result.push( "#{dice_now}[#{dice_st_n}]" );
+      else
+        dice_result.push( dice_now )
+      end
+        
+        numberSpot1 += 1 if( dice_now == 1 );
+      cnt_max += 1 if( dice_now == dice_max );
+      n_max = dice_now if( dice_now > n_max);
+    end
+    
+    if( dice_sort != 0 )
+      dice_str = dice_result.sort_by{|a| dice_num(a)}.join(",")
+    else
+      dice_str = dice_result.join(",");
+    end
+    
+    return total, dice_str, numberSpot1, cnt_max, n_max, cnt_suc, cnt_re;
   end
   
   def setRandomValues(rands)
@@ -902,15 +958,33 @@ class BCDice
   def rand(max)
     debug('rand called @rands', @rands)
     
+    value = 0 
     if( @rands.nil? )
-      #debug('randNomal(max)')
-      return randNomal(max)
+      value = randNomal(max)
+    else
+      value = randFromRands(max)
     end
     
-    #debug('randFromRands(max)')
-    return randFromRands(max)
-  end
+    unless( @randResults.nil? ) 
+      @randResults << [(value + 1), max]
+    end
     
+    return value
+  end
+  
+  
+  def setCollectRandResult(b)
+    if( b )
+      @randResults = []
+    else
+      @randResults = nil
+    end
+  end
+  
+  def getRandResults
+    @randResults
+  end
+  
   def randNomal(max)
     Kernel.rand(max)
   end
@@ -969,7 +1043,7 @@ class BCDice
     
     dice_a = string.split(/\+/)
     dice_cnt_total = 0;
-    n1_total = 0;
+    numberSpot1 = 0;
     
     dice_a.each do |dice_o|
       dice_cnt, dice_max, = dice_o.split(/[bB]/)
@@ -980,14 +1054,14 @@ class BCDice
       suc += dice_dat[5];
       output += "," if(output != "");
       output += dice_dat[1];
-      n1_total += dice_dat[2];
+      numberSpot1 += dice_dat[2];
       dice_cnt_total += dice_cnt;
     end
     
     if(signOfInequality != "")
       string += "#{signOfInequality}#{diff}";
       output = "#{output} ＞ 成功数#{suc}";
-      output += @diceBot.getGrichText(n1_total, dice_cnt_total, suc)
+      output += @diceBot.getGrichText(numberSpot1, dice_cnt_total, suc)
     end
     output = "#{@nick_e}: (#{string}) ＞ #{output}";
     
@@ -998,7 +1072,7 @@ class BCDice
     ( (dice_cnt > 0) and ((round < @diceBot.rerollLimitCount) or (@diceBot.rerollLimitCount == 0)) )
   end
   
-####################             D66ダイス        ########################
+  ####################             D66ダイス        ########################
   def d66dice(string)
     string = string.upcase
     secret_flg = false
@@ -1025,28 +1099,33 @@ class BCDice
   end
   
   def getD66Value(mode)
-    output = 0;
+    isSwap = ( mode > 1)
+    getD66(isSwap)
+  end
+  
+  def getD66(isSwap)
+    output = 0
     
     dice_a = rand(6) + 1
     dice_b = rand(6) + 1
+    debug("dice_a", dice_a)
+    debug("dice_b", dice_b)
     
-    if( mode > 1)
+    if( isSwap and (dice_a > dice_b))
       # 大小でスワップするタイプ
-      if(dice_a < dice_b)
-        output = dice_a * 10 + dice_b;
-      else 
-        output = dice_a + dice_b * 10;
-      end
+      output = dice_a + dice_b * 10
     else
       # 出目そのまま
-      output = dice_a * 10 + dice_b;
+      output = dice_a * 10 + dice_b
     end
+    
+    debug("output", output)
     
     return output;
   end
   
-
-####################        その他ダイス関係      ########################
+  
+  ####################        その他ダイス関係      ########################
   def openSecretRoll(channel, mode)
     debug("openSecretRoll begin")
     channel = channel.upcase
@@ -1147,15 +1226,15 @@ class BCDice
     nick = getNick()
     $plotPrintChannels[nick] = @channel;
   end
-
-
-#==========================================================================
-#**                            その他の機能
-#==========================================================================
-  def choise_random(string)
+  
+  
+  #==========================================================================
+  #**                            その他の機能
+  #==========================================================================
+  def choice_random(string)
     output = "1";
-
-    unless(/(^|\s)((S)?choise\[([^,]+(,[^,]+)+)\])($|\s)/i =~ string)
+    
+    unless(/(^|\s)((S)?choice\[([^,]+(,[^,]+)+)\])($|\s)/i =~ string)
       return output
     end
     
@@ -1173,15 +1252,15 @@ class BCDice
     
     return output;
   end
-
-#==========================================================================
-#**                            結果判定関連
-#==========================================================================
+  
+  #==========================================================================
+  #**                            結果判定関連
+  #==========================================================================
   def getMarshaledSignOfInequality(text)
     return "" if( text.nil? )
     return marshalSignOfInequality(text)
   end
-
+  
   def marshalSignOfInequality(signOfInequality)  # 不等号の整列
     case signOfInequality
     when /(<=|=<)/
@@ -1206,12 +1285,12 @@ class BCDice
     
     if( diff.is_a?(String) )
       unless( /\d/ =~ diff )
-        return suc 
+        return suc
       end
       diff = diff.to_i
     end
     
-    case signOfInequality 
+    case signOfInequality
     when /(<=|=<)/
       if( dice_now <= diff)
         suc += 1
@@ -1240,9 +1319,9 @@ class BCDice
     
     return suc;
   end
-
-
-####################       ゲーム別成功度判定      ########################
+  
+  
+  ####################       ゲーム別成功度判定      ########################
   def check_suc(*check_param)
     
     total_n, dice_n, signOfInequality, diff, dice_cnt, dice_max, n1, n_max = *check_param
@@ -1304,23 +1383,23 @@ class BCDice
     
     return ""
   end
-
+  
   def check_nDx(total_n, dice_n, signOfInequality, diff, dice_cnt, dice_max, n1, n_max)  # ゲーム別成功度判定(ダイスごちゃ混ぜ系)
     debug('check_nDx begin diff', diff)
     success = check_hit(total_n, signOfInequality, diff);
     debug('check_nDx success', success)
     
     if(success >= 1)
-        return " ＞ 成功";
+      return " ＞ 成功";
     end
     
     return " ＞ 失敗";
   end
   
-###########################################################################
-#**                              出力関連
-###########################################################################
-
+  ###########################################################################
+  #**                              出力関連
+  ###########################################################################
+  
   def broadmsg(output_msg, nick)
     debug("broadmsg output_msg, nick", output_msg, nick)
     debug("@nick_e", @nick_e)
@@ -1353,11 +1432,11 @@ class BCDice
     @ircClient.sendMessageToChannels(message)
     @isMessagePrinted = true
   end
-
   
-####################         テキスト前処理        ########################
+  
+  ####################         テキスト前処理        ########################
   def parren_killer(string)
-   debug("parren_killer input", string)
+    debug("parren_killer input", string)
     
     while( /^(.*?)\[(\d+[Dd]\d+)\](.*)/ =~ string )
       str_before = "";
@@ -1433,7 +1512,7 @@ class BCDice
       
       afterText = $4
       afterText ||= "";
-
+      
       if(rangeBegin < rangeEnd)
         range = (rangeEnd - rangeBegin + 1)
         debug('range', range)
@@ -1451,7 +1530,7 @@ class BCDice
   
   def paren_k(string)
     kazu_o = 0;
-
+    
     unless (/([\d\/*+-]+)/ =~ string)
       return kazu_o
     end
@@ -1554,105 +1633,83 @@ class BCDice
   end
   
   
-  def setGameByTitle(tnick)  # 各種ゲームモードの設定
-    debug('setGameByTitle tnick', tnick)
+  def setGameByTitle(gameTitle)  # 各種ゲームモードの設定
+    debug('setGameByTitle gameTitle', gameTitle)
     
     @cardTrader.initValues;
     
     diceBot = nil
-    message = ""
     
-    case tnick
+    case gameTitle
     when /(^|\s)((Cthulhu)|(COC))$/i
       require 'diceBot/Cthulhu'
       diceBot = Cthulhu.new
-      message = 'Game設定をCall of Cthulhu(BRP)に設定しました'
     when /(^|\s)((Hieizan)|(COCH))$/i
       require 'diceBot/Hieizan'
       diceBot = Hieizan.new
-      message = 'Game設定を比叡山炎上(CoC)に設定しました'
     when /(^|\s)((Elric!)|(EL))$/i
       require 'diceBot/Elric'
       diceBot = Elric.new
-      message = 'Game設定をElric!に設定しました'
     when /(^|\s)((RuneQuest)|(RQ))$/i
       require 'diceBot/RuneQuest'
       diceBot = RuneQuest.new
-      message = 'Game設定をRuneQuestに設定しました'
     when /(^|\s)((Chill)|(CH))$/i
       require 'diceBot/Chill'
       diceBot = Chill.new
-      message = 'Game設定をChillに設定しました'
     when /(^|\s)((RoleMaster)|(RM))$/i
       require 'diceBot/RoleMaster'
       diceBot = RoleMaster.new
-      message = 'Game設定をRoleMasterに設定しました'
     when /(^|\s)((ShadowRun)|(SR))$/i
       require 'diceBot/ShadowRun'
       diceBot = ShadowRun.new
-      message = 'Game設定をShadowRunに設定しました'
     when /(^|\s)((ShadowRun4)|(SR4))$/i
       require 'diceBot/ShadowRun4'
       diceBot = ShadowRun4.new
-      message = 'Game設定をShadowRun4版に設定しました'
     when /(^|\s)((Pendragon)|(PD))$/i
       require 'diceBot/Pendragon'
       diceBot = Pendragon.new
-      message = 'Game設定をPendragonに設定しました'
+    when /(^|\s)(SwordWorld\s*2\.0|SW\s*2\.0)$/i
+      require 'diceBot/SwordWorld'
+      require 'diceBot/SwordWorld2_0'
+      diceBot = SwordWorld2_0.new
     when /(^|\s)((SwordWorld)|(SW))$/i
       require 'diceBot/SwordWorld'
-      diceBot = SwordWorld.new( 0 )  # レーティング表を文庫版モードに
-      message = 'Game設定をソードワールドに設定しました'
-    when /(^|\s)((SwordWorld)\s*2\.0|(SW)\s*2\.0)$/i
-      require 'diceBot/SwordWorld'
-      diceBot = SwordWorld.new( 2 )  # レーティング表を2.0モードに
-      message = 'Game設定をソードワールド2.0に設定しました'
+      diceBot = SwordWorld.new
     when /(^|\s)((Arianrhod)|(AR))$/i
       require 'diceBot/Arianrhod'
       diceBot = Arianrhod.new
-      message = 'Game設定をアリアンロッドに設定しました'
     when /(^|\s)((Infinite[\s]*Fantasia)|(IF))$/i
       require 'diceBot/InfiniteFantasia'
       diceBot = InfiniteFantasia.new
-      message = 'Game設定を無限のファンタジアに設定しました'
     when /(^|\s)(WARPS)$/i
       require 'diceBot/WARPS'
       diceBot = WARPS.new
-      message = 'Game設定をWARPSに設定しました'
     when /(^|\s)((Demon[\s]*Parasite)|(DP))$/i
       require 'diceBot/DemonParasite'
       diceBot = DemonParasite.new
-      message = 'Game設定をデモンパラサイト/鬼御魂に設定しました'
     when /(^|\s)((Parasite\s*Blood)|(PB))$/i
       require 'diceBot/DemonParasite'
       require 'diceBot/ParasiteBlood'
       diceBot = ParasiteBlood.new
-      message = 'Game設定をパラサイトブラッドに設定しました'
     when /(^|\s)((Gun[\s]*Dog)|(GD))$/i
       require 'diceBot/Gundog'
       diceBot = Gundog.new
-      message = 'Game設定をガンドッグに設定しました'
     when /(^|\s)((Gun[\s]*Dog[\s]*Zero)|(GDZ))$/i
       require 'diceBot/Gundog'
       require 'diceBot/GundogZero'
       diceBot = GundogZero.new
-      message = 'Game設定をガンドッグゼロに設定しました'
     when /(^|\s)((Tunnels[\s]*&[\s]*Trolls)|(TuT))$/i
       require 'diceBot/TunnelsAndTrolls'
       diceBot = TunnelsAndTrolls.new
-      message = 'Game設定をトンネルズ＆トロールズに設定しました'
     when /(^|\s)((Nightmare[\s]*Hunter[=\s]*Deep)|(NHD))$/i
       require 'diceBot/NightmareHunterDeep'
       diceBot = NightmareHunterDeep.new
-      message = 'Game設定をナイトメアハンター・ディープに設定しました'
     when /(^|\s)((War[\s]*Hammer(FRP)?)|(WH))$/i
       require 'diceBot/Warhammer'
       diceBot = Warhammer.new
-      message = 'Game設定をウォーハンマーFRPに設定しました'
     when /(^|\s)((Phantasm[\s]*Adventure)|(PA))$/i
       require 'diceBot/PhantasmAdventure'
       diceBot = PhantasmAdventure.new
-      message = 'Game設定をファンタズムアドベンチャーに設定しました'
     when /(^|\s)((Chaos[\s]*Flare)|(CF))$/i
       require 'diceBot/ChaosFlare'
       diceBot = ChaosFlare.new
@@ -1661,79 +1718,63 @@ class BCDice
       @cardTrader.setCardPlace(0)#手札の他のカード置き場
       @cardTrader.setCanTapCard(false)#場札のタップ処理の必要があるか？
       
-      message = 'Game設定をカオスフレアに設定しました'
     when /(^|\s)((Cthulhu[\s]*Tech)|(CT))$/i
       require 'diceBot/CthulhuTech'
       diceBot = CthulhuTech.new
-      message = 'Game設定をクトゥルフ・テックに設定しました'
     when /(^|\s)((Tokumei[\s]*Tenkousei)|(ToT))$/i
       require 'diceBot/TokumeiTenkousei'
       diceBot = TokumeiTenkousei.new
-      message = 'Game設定を特命転攻生に設定しました'
     when /(^|\s)((Shinobi[\s]*Gami)|(SG))$/i
       require 'diceBot/ShinobiGami'
       diceBot = ShinobiGami.new
-      message = 'Game設定を忍神に設定しました'
     when /(^|\s)((Double[\s]*Cross)|(DX))$/i
       require 'diceBot/DoubleCross'
       diceBot = DoubleCross.new
-      message = 'Game設定をダブルクロス3に設定しました'
     when /(^|\s)((Sata[\s]*Supe)|(SS))$/i
       require 'diceBot/Satasupe'
       diceBot = Satasupe.new
-      message = 'Game設定をサタスペに設定しました'
     when /(^|\s)((Ars[\s]*Magica)|(AM))$/i
       require 'diceBot/ArsMagica'
       diceBot = ArsMagica.new
-      message = 'Game設定をArsMagicaに設定しました'
     when /(^|\s)((Dark[\s]*Blaze)|(DB))$/i
       require 'diceBot/DarkBlaze'
       diceBot = DarkBlaze.new
-      message = 'Game設定をダークブレイズに設定しました'
     when /(^|\s)((Night[\s]*Wizard)|(NW))$/i
       require 'diceBot/NightWizard'
       diceBot = NightWizard.new
-      message = 'Game設定をナイトウィザードに設定しました'
     when /(^|\s)TORG$/i
       require 'diceBot/Torg'
       diceBot = Torg.new
-      message = 'Game設定をTORGに設定しました'
     when /(^|\s)(hunters\s*moon|HM)$/i
       require 'diceBot/HuntersMoon'
       diceBot = HuntersMoon.new
-      message = 'Game設定をハンターズ・ムーンに設定しました'
+    when /(^|\s)(Blood\s*Crusade|BC)$/i
+      require 'diceBot/BloodCrusade'
+      diceBot = BloodCrusade.new
     when /(^|\s)(Meikyu\s*Kingdom|MK)$/i
       require 'diceBot/MeikyuKingdom'
       diceBot = MeikyuKingdom.new
-      message = 'Game設定を迷宮キングダムに設定しました'
     when /(^|\s)(Earth\s*Dawn|ED)$/i
       require 'diceBot/EarthDawn'
       diceBot = EarthDawn.new
-      message = 'Game設定をEarthDawnに設定しました'
     when /(^|\s)(Embryo\s*Machine|EM)$/i
       require 'diceBot/EmbryoMachine'
       diceBot = EmbryoMachine.new
-      message = 'Game設定をエムブリオマシンに設定しました'
     when /(^|\s)(Gehenna\s*An|GA)$/i
       require 'diceBot/GehennaAn'
       diceBot = GehennaAn.new
-      message = 'Game設定をゲヘナ・アナスタシスに設定しました'
     when /(^|\s)((Magica[\s]*Logia)|(ML))$/i
       require 'diceBot/MagicaLogia'
       diceBot = MagicaLogia.new
-      message = 'Game設定をマギカロギアに設定しました'
     when /(^|\s)((Nechronica)|(NC))$/i
       require 'diceBot/Nechronica'
       diceBot = Nechronica.new
-      message = 'Game設定をネクロニカに設定しました'
     when /(^|\s)(Meikyu\s*Days|MD)$/i
       require 'diceBot/MeikyuDays'
       diceBot = MeikyuDays.new
-      message = 'Game設定を迷宮デイズに設定しました'
     when /(^|\s)(Peekaboo|PK)$/i
       require 'diceBot/Peekaboo'
       diceBot = Peekaboo.new
-      message = 'Game設定をピーカブーに設定しました'
     when /(^|\s)(Barna\s*Kronika|BK)$/i
       require 'diceBot/BarnaKronika'
       diceBot = BarnaKronika.new
@@ -1742,31 +1783,55 @@ class BCDice
       @cardTrader.setCardPlace(0)#手札の他のカード置き場
       @cardTrader.setCanTapCard(false)#場札のタップ処理の必要があるか？
       
-      message = 'Game設定をバルナ・クロニカに設定しました'
     when /(^|\s)(RokumonSekai2|RS2)$/i
       require 'diceBot/RokumonSekai2'
       diceBot = RokumonSekai2.new
-      message = 'Game設定を六門世界2nd.に設定しました'
     when /(^|\s)(Monotone(\s*)Musium|MM)$/i
       require 'diceBot/MonotoneMusium'
       diceBot = MonotoneMusium.new
-      message = 'Game設定をモノトーン・ミュージアムに設定しました'
     when /(^|\s)Zettai\s*Reido$/i
       require 'diceBot/ZettaiReido'
       diceBot = ZettaiReido.new
-      message = 'Game設定を絶対隷奴に設定しました'
     when /(^|\s)Eclipse\s*Phase$/i
       require 'diceBot/EclipsePhase'
       diceBot = EclipsePhase.new
-      message = 'Game設定をEclipse Phaseに設定しました'
-    when /(^|\s)(None)$/i, ""
+    when /(^|\s)NJSLYRBATTLE$/i
+      require 'diceBot/NjslyrBattle'
+      diceBot = NjslyrBattle.new
+    when /(^|\s)ShinMegamiTenseiKakuseihen$/i, /(^|\s)SMTKakuseihen$/i
+      require 'diceBot/ShinMegamiTenseiKakuseihen'
+      diceBot = ShinMegamiTenseiKakuseihen.new
+    when /(^|\s)Ryutama$/i
+      require 'diceBot/Ryutama'
+      diceBot = Ryutama.new
+    when /(^|\s)CardRanker$/i
+      require 'diceBot/CardRanker'
+      diceBot = CardRanker.new
+    when /(^|\s)ShinkuuGakuen$/i
+      require 'diceBot/ShinkuuGakuen'
+      diceBot = ShinkuuGakuen.new
+    when /(^|\s)CrashWorld$/i
+      require 'diceBot/CrashWorld'
+      diceBot = CrashWorld.new
+    when /(^|\s)WitchQuest$/i
+      require 'diceBot/WitchQuest'
+      diceBot = WitchQuest.new
+    when /(^|\s)None$/i, ""
       diceBot = DiceBot.new
-      message = 'Game設定を解除しました'
     else
-      message = 'そのゲームは未実装です'
+      require 'diceBot/DiceBotLoader'
+      loader = DiceBotLoader.new
+      diceBot = loader.loadUnknownGame(gameTitle)
+    end
+    
+    if( diceBot.nil? )
+      diceBot = DiceBot.new
     end
     
     setDiceBot(diceBot)
+    
+    message = "Game設定を#{diceBot.gameName}に設定しました"
+    debug( 'setGameByTitle message', message )
     
     return message
   end

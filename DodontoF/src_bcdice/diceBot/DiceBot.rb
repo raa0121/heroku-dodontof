@@ -20,7 +20,7 @@ class DiceBot
     @rerollLimitCount = 0;    #振り足し回数上限
     @fractionType = "omit";     #端数の処理 ("omit"=切り捨て, "roundUp"=切り上げ, "roundOff"=四捨五入)
     
-    @gameType = 'none'
+    @gameType = 'DiceBot'
   end
   
   attr_accessor :rerollLimitCount
@@ -28,6 +28,26 @@ class DiceBot
   attr_reader :sendMode, :sameDiceRerollCount, :sameDiceRerollType, :d66Type
   attr_reader :isPrintMaxDice, :upplerRollThreshold, :unlimitedRollDiceType
   attr_reader :defaultSuccessTarget, :rerollNumber, :fractionType
+  
+  
+  def info
+    {
+      :name => gameName,
+      :gameType => gameType,
+      :prefixs => prefixs,
+      :info => getHelpMessage,
+    }
+  end
+  
+  def gameName
+    # raise "gameName is NOT define in #{self.class.name}"
+    gameType
+  end
+  
+  def prefixs
+    # raise "prefixs is NOT define in #{self.class.name}"
+    []
+  end
   
   def gameType
     @gameType
@@ -104,8 +124,17 @@ class DiceBot
   end
   
   def dice_command(string, nick_e)
+    output_msg, secret_flg = rollDiceCommandResult(string)
+    return output_msg, secret_flg if( output_msg == '1' )
+    
+    output_msg = "#{nick_e}: #{output_msg}"
+    return output_msg, secret_flg
+  end
+  
+  def rollDiceCommandResult(string)
     ['1', false]
   end
+
   
   def setDiceText(diceText)
     debug("setDiceText diceText", diceText)
@@ -152,7 +181,7 @@ class DiceBot
   def get_table_by_nD6(table, count)
     num, dummy = roll(count, 6);
     
-    text = table[num - count]
+    text = getTableValue(table[num - count])
     
     return '1', 0  if( text.nil? )
     return text, num
@@ -172,6 +201,21 @@ class DiceBot
     
     return '1', 0  if( text.nil? )
     return text, num
+  end
+  
+  
+  def get_table_by_d66(table)
+    dice1, dummy = roll(1, 6);
+    dice2, dummy = roll(1, 6);
+    
+    num = (dice1 - 1) * 6 + (dice2 - 1);
+    
+    text = table[num]
+    
+    indexText = "#{dice1}#{dice2}"
+    
+    return '1', indexText  if( text.nil? )
+    return text, indexText
   end
   
   
@@ -207,33 +251,47 @@ class DiceBot
   end
   
   #シャドウラン4版用グリッチ判定
-  def getGrichText(n1_total, dice_cnt_total, suc)
+  def getGrichText(numberSpot1, dice_cnt_total, suc)
     ''
   end
   
   def getDiceList
-    debug("getDiceList @diceText", @diceText)
+    getDiceListFromDiceText(@diceText)
+  end
+  
+  def getDiceListFromDiceText(diceText)
+    debug("getDiceList diceText", diceText)
     
     diceList = []
-    return diceList unless( /\[([\d,]+)\]/ =~ @diceText )
+    return diceList unless( /\[([\d,]+)\]/ =~ diceText )
     
     diceString = $1;
     diceList = diceString.split(/,/).collect{|i| i.to_i}
+    
+    debug("diceList", diceList)
     
     return diceList
   end
 
   
   #** 汎用表サブルーチン
-  def get_table_by_number(index, table)
+  def get_table_by_number(index, table, default = '1')
     table.each do |item|
       number = item[0];
       if( number >= index )
-        return item[1];
+        return getTableValue( item[1] )
       end
     end
     
-    return '1';
+    return getTableValue( default )
+  end
+  
+  def getTableValue(data)
+    if( data.kind_of?( Proc ) )
+      return data.call()
+    end
+    
+    return data
   end
   
   

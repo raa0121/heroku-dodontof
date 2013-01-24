@@ -13,7 +13,7 @@ require 'mysql'
 $SAVE_DATA_DIR = '.'
 
 #サーバCGIとクライアントFlashのバージョン一致確認用
-$version = "Ver.1.35.01(2012/01/02)"
+$version = "Ver.1.40.00.03(2012/11/18)"
 
 class SaveDataManagerOnMySql
   def initialize
@@ -507,6 +507,13 @@ SQL
     logging("loadSaveFileDataForChatType end")
   end
   
+  def deleteChatLogBySaveFile(trueSaveFileName)
+    dirName = File.dirname(trueSaveFileName)
+    tableName = getChatTableName(dirName)
+    
+    deleteTable(tableName)
+    createChatTable(tableName)
+  end
   
 end
 
@@ -553,6 +560,9 @@ class MySqlAccesser
     @@saveDataManager.loadSaveFileDataForChatType(trueSaveFileName, saveDataForChat)
   end
   
+  def deleteChatLogBySaveFile(trueSaveFileName)
+    @@saveDataManager.deleteChatLogBySaveFile(trueSaveFileName)
+  end
 end
 
 
@@ -625,6 +635,8 @@ class FileLockMySql < FileLock
   
 end
 
+
+
 class DodontoFServer_MySql < DodontoFServer
   
   def getDataAccesser
@@ -696,13 +708,13 @@ class DodontoFServer_MySql < DodontoFServer
   end
   
   
-  def loadSaveFileForChat(typeName, saveFileName, lastUpdateTimes)
-    getDataAccesser().loadSaveFileForChat(typeName, saveFileName, lastUpdateTimes)
+  def loadSaveFileForChat(typeName, saveFileName)
+    getDataAccesser().loadSaveFileForChat(typeName, saveFileName, @lastUpdateTimes)
   end
   
-  def loadSaveFile(typeName, saveFileName, lastUpdateTimes)
+  def loadSaveFile(typeName, saveFileName)
     if( isChatType(typeName) )
-      return loadSaveFileForChat(typeName, saveFileName, lastUpdateTimes)
+      return loadSaveFileForChat(typeName, saveFileName)
     end
     
     return super
@@ -725,6 +737,9 @@ class DodontoFServer_MySql < DodontoFServer
     super
   end
   
+  def deleteChatLogBySaveFile(trueSaveFileName)
+    getDataAccesser().deleteChatLogBySaveFile(trueSaveFileName)
+  end
   
   def getTestResponseText
     "「どどんとふ（MySQL）」の動作環境は正常に起動しています。";
@@ -733,7 +748,7 @@ class DodontoFServer_MySql < DodontoFServer
 end
 
 
-def mainMySql()
+def mainMySql(cgiParams)
   
   saveDataManager = SaveDataManagerOnMySql.new
   
@@ -741,8 +756,7 @@ def mainMySql()
   MySqlAccesser.setSaveDataManager(saveDataManager)
   SaveDirInfoMySql.setSaveDataManager(saveDataManager)
   
-  cgi = CGI.new
-  server = DodontoFServer_MySql.new(SaveDirInfoMySql.new(), cgi, cgi.content_type)
+  server = DodontoFServer_MySql.new(SaveDirInfoMySql.new(), cgiParams)
   
   printResult(server)
 end
@@ -750,11 +764,12 @@ end
 
 
 if( $0 === __FILE__ )
-  
   initLog();
   
+  cgiParams = getCgiParams()
   
-  mainMySql()
+  
+  mainMySql(cgiParams)
   
 end
 

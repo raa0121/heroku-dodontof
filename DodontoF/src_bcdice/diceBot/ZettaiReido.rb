@@ -4,29 +4,23 @@ class ZettaiReido < DiceBot
   
   def initialize
     super
-    
-    # @sendMode = @@DEFAULT_SEND_MODE #(0=結果のみ,1=0+式,2=1+ダイス個別)
-    # @sortType = 0;      #ソート設定(1 = ?, 2 = ??, 3 = 1&2　各値の意味が不明です懼�ｦ）
-    # @sameDiceRerollCount = 0;     #ゾロ目で振り足し(0=無し, 1=全部同じ目, 2=ダイスのうち2個以上同じ目)
-    # @sameDiceRerollType = 0;   #ゾロ目で振り足しのロール種別(0=判定のみ, 1=ダメージのみ, 2=両方)
-    # @d66Type = 0;        #d66の差し替え
-    # @isPrintMaxDice = false;      #最大値表示
-    # @upplerRollThreshold = 0;      #上方無限
-    # @unlimitedRollDiceType = 0;    #無限ロールのダイス
-    # @rerollNumber = 0;      #振り足しする条件
-    # @defaultSuccessTarget = "";      #目標値が空欄の時の目標値
-    # @rerollLimitCount = 0;    #振り足し回数上限
-    # @fractionType = "omit";     #端数の処理 ("omit"=切り捨て, "roundUp"=切り上げ, "roundOff"=四捨五入)
+  end
+  def gameName
+    '絶対隷奴'
   end
   
   def gameType
     "ZettaiReido"
   end
   
+  def prefixs
+     ['\d+\-2DR']
+  end
+  
   def getHelpMessage
-    return <<MESSAGETEXT
+    info = <<INFO_MESSAGE_TEXT
 m-2DR+n>=x　：m(基本能力),n(修正値),x(目標値) DPの取得の有無も表示されます。
-MESSAGETEXT
+INFO_MESSAGE_TEXT
   end
   
   def changeText(string)

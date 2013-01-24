@@ -1,9 +1,23 @@
 #--*-coding:utf-8-*--
 
 class ChaosFlare < DiceBot
+  def gameName
+    'カオスフレア'
+    end
   
   def gameType
     "Chaos Flare"
+  end
+  
+  def prefixs
+     []
+  end
+  
+  def getHelpMessage
+    info = <<INFO_MESSAGE_TEXT
+失敗、成功(差分値の計算も)の自動判定を行います。
+ファンブル時は達成値を-20します。
+INFO_MESSAGE_TEXT
   end
   
   def check_2D6(total_n, dice_n, signOfInequality, diff, dice_cnt, dice_max, n1, n_max)  # ゲーム別成功度判定(2D6)
@@ -21,6 +35,7 @@ class ChaosFlare < DiceBot
         end
       else
         output += " ＞ 失敗";
+        output += " ＞ 差分値#{total_n-diff}"
       end
     end
     

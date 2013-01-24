@@ -1,0 +1,3 @@
+<Files ~ "saveData/*">
+  deny from all
+  </Files>

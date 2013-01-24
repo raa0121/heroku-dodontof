@@ -9,29 +9,41 @@ class HuntersMoon < DiceBot
     @d66Type = 2;
     @fractionType = "roundUp";     # 端数切り上げに設定
   end
+  def gameName
+    'ハンターズムーン'
+  end
   
   def gameType
     "HuntersMoon"
   end
   
-  def getHelpMessage
-    return <<MESSAGETEXT
-・ハンターズムーン　　遭遇表　(ET)
-・　　　　都市ロケーション表　(CLT)
-・　　　　閉所ロケーション表　(SLT)
-・　　　　炎熱ロケーション表　(HLT)
-・　　　　冷暗ロケーション表　(FLT)
-・　　　　部位ダメージ決定表　(DLT)
-・　　　　モノビースト行動表　(MAT)
-・　　　　異形アビリティー表　(SATx) (x:個数)
-・　　　　指定特技(社会)表　　(TST)
-・　　　　指定特技(頭部)表　　(THT)
-・　　　　指定特技(腕部)表　　(TAT)
-・　　　　指定特技(胴部)表　　(TBT)
-・　　　　指定特技(脚部)表　　(TLT)
-・　　　　指定特技(環境)表　　(TET)
-MESSAGETEXT
+  def prefixs
+     ['(ET|CLT|SLT|HLT|FLT|DLT|MAT|SAT|TST|THT|TAT|TBT|TLT|TET)']
   end
+  
+  def getHelpMessage
+    info = <<INFO_MESSAGE_TEXT
+・判定
+　判定時にクリティカルとファンブルを自動判定します。
+・各種表
+　・遭遇表　(ET)
+　・都市ロケーション表　(CLT)
+　・閉所ロケーション表　(SLT)
+　・炎熱ロケーション表　(HLT)
+　・冷暗ロケーション表　(FLT)
+　・部位ダメージ決定表　(DLT)
+　・モノビースト行動表　(MAT)
+　・異形アビリティー表　(SATx) (xは個数)
+　・指定特技(社会)表　　(TST)
+　・指定特技(頭部)表　　(THT)
+　・指定特技(腕部)表　　(TAT)
+　・指定特技(胴部)表　　(TBT)
+　・指定特技(脚部)表　　(TLT)
+　・指定特技(環境)表　　(TET)
+・D66ダイスあり
+INFO_MESSAGE_TEXT
+  end
+  
   
   def dice_command(string, nick_e)
     secret_flg = false
@@ -96,9 +108,9 @@ MESSAGETEXT
       type = '異形アビリティー';
       count = $1.to_i
       count = 1 if(count == 0)
-debug('count', count)
+      debug('count', count)
       output, total_n = hm_strange_ability_table(count);
-debug('SAT output', output)
+      debug('SAT output', output)
       
     when /TST/i
       type = '指定特技(社会)';
@@ -128,41 +140,6 @@ debug('SAT output', output)
     
     output = "#{nick_e}: #{type}表(#{total_n}) ＞ #{output}";
     return output;
-  end
-  
-  
-  def get_table_by_1d6(table)
-    num, dummy = roll(1, 6);
-    
-    text = table[num - 1]
-    
-    return '1', 0 if( text.nil? )
-    return text, num
-  end
-  
-  
-  def get_table_by_2d6(table)
-    num, dummy = roll(2, 6);
-    
-    text = table[num - 2]
-    
-    return '1',0  if( text.nil? )
-    return text, num
-  end
-  
-  
-  def get_table_by_d66(table)
-    dice1, dummy = roll(1, 6);
-    dice2, dummy = roll(1, 6);
-    
-    num = (dice1 - 1) * 6 + (dice2 - 1);
-    
-    text = table[num]
-    
-    indexText = "#{dice1}#{dice2}"
-    
-    return '1', indexText  if( text.nil? )
-    return text, indexText
   end
   
   

@@ -19,12 +19,23 @@ class _Template < DiceBot
     # @fractionType = "omit";     #端数の処理 ("omit"=切り捨て, "roundUp"=切り上げ, "roundOff"=四捨五入)
   end
   
+  
+  def prefixs
+    #ダイスボットで使用するコマンドを配列で列挙すること。
+    []
+  end
+  
+  def gameName
+    'ゲーム名'
+  end
+  
   def gameType
-    "_Template"
+    "gameType"
   end
   
   def getHelpMessage
     return <<MESSAGETEXT
+ヘルプメッセージ
 MESSAGETEXT
   end
   
@@ -68,7 +79,7 @@ MESSAGETEXT
   #get_table_by_nD6(table, count)
   #get_table_by_1d3(table)
   #get_table_by_number(index, table)
-  
+  #get_table_by_d66(table)
   
   #ダイスロールによるポイント等の取得処理用（T&T悪意、ナイトメアハンター・ディープ宿命、特命転校生エクストラパワーポイントなど）
   def getDiceRolledAdditionalText(n1, n_max, dice_max)
@@ -90,5 +101,5 @@ MESSAGETEXT
     0
   end
   
-  
+  #ダイス目が知りたくなったら getDiceList を呼び出すこと(DiceBot.rbにて定義)
 end

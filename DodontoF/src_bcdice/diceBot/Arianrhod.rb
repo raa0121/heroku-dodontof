@@ -9,11 +9,32 @@ class Arianrhod < DiceBot
     @d66Type = 1;
   end
   
+  def gameName
+    'アリアンロッド'
+  end
+  
   def gameType
     "Arianrhod"
   end
   
+  def prefixs
+    []
+  end
+  
+  def getHelpMessage
+    info = <<INFO_MESSAGE_TEXT
+・クリティカル、ファンブルの自動判定を行います。(クリティカル時の追加ダメージも表示されます)
+・D66ダイスあり
+INFO_MESSAGE_TEXT
+  end
+  
+  def check_2D6(total_n, dice_n, signOfInequality, diff, dice_cnt, dice_max, n1, n_max)  # ゲーム別成功度判定(2D6)
+    check_nD6(total_n, dice_n, signOfInequality, diff, dice_cnt, dice_max, n1, n_max)
+  end
+  
   def check_nD6(total_n, dice_n, signOfInequality, diff, dice_cnt, dice_max, n1, n_max) # ゲーム別成功度判定(nD6)
+    debug("check_nD6 begin")
+    
     if(n1 >= dice_cnt)  # 全部１の目ならファンブル
       return " ＞ ファンブル";
     elsif(n_max >= 2)  # ２個以上６の目があったらクリティカル

@@ -7,6 +7,7 @@ $LOAD_PATH << File.dirname(__FILE__) + "/../irc"
 
 require 'Kconv'
 require 'bcdiceCore.rb'
+require 'diceBot/DiceBotLoader'
 
 class TestDiceBot
   
@@ -17,6 +18,8 @@ class TestDiceBot
   
   def test(arg)
     @testParms = arg
+    
+    DiceBotLoader.setBcDicePath( '../../src_bcdice' )
     
     resultFile = './testData.txt'
     
@@ -58,32 +61,14 @@ class TestDiceBot
     bot = CgiDiceBot.new
     bot.setRandomValues(@rands)
     bot.setTest()
-    result = bot.roll(message, gameType)
+    result, randResults = bot.roll(message, gameType)
+    
+    unless( @rands.empty? )
+      result << "\n\tダイス残り：#{@rands.collect do |i| i.join('/') end.join(',')}"
+    end
     
     return result
   end
-  
-  def executeCommand_old()
-    message, gameType = getMessageAndGameTape
-    
-    require 'torgtaitaiIRC'
-    
-    ircClient = TorgtaitaiIRC.new();
-    ircClient.setGameByTitle(gameType)
-    
-    ircClient.setTest()
-    ircClient.setRandomValues(@rands)
-    
-    ircClient.setMessage(message)
-    # ircClient.recieveMessage
-    ircClient.recievePublicMessage
-    
-    result = ircClient.getBuffer
-    ircClient.clearBuffer
-    
-    return result
-  end
-  
   
   def executeTest()
     message, currentGameType = getMessageAndGameTape
@@ -96,7 +81,7 @@ class TestDiceBot
     unless( targetNumber.nil? )
       $isDebug = true
     end
-
+    
     errorLog = ""
     begin
       result = executeCommand()

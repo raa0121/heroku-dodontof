@@ -59,6 +59,11 @@ class SaveDirInfo
     return saveDirs
   end
   
+  def getSaveDataLastAccessTime(fileName, roomNo)
+    roomNumberRange = (roomNo .. roomNo )
+    return getSaveDataLastAccessTimes([fileName], roomNumberRange)
+  end
+  
   def getSaveDataLastAccessTimes(fileNames, roomNumberRange)
     logging(fileNames, "getSaveDataLastAccessTimes fileNames")
     
@@ -186,12 +191,13 @@ class SaveDirInfo
   end
   
   def self.removeDir(dirName)
-    unless( FileTest.directory?(dirName) )
-      return
-    end
+    return unless( FileTest.directory?(dirName) )
     
-    #fileNames = getSaveFileAllNames
-    #files = getExistFileNames(dirName, fileNames)
+    # force = true
+    # FileUtils.remove_entry_secure(dirName, force)
+    # 上記のメソッドは一部レンタルサーバ(さくらインターネット等）で禁止されているので、
+    # この下の方法で対応しています。
+
     files = Dir.glob( File.join(dirName, "*") )
     
     logging(files, "removeDir files")

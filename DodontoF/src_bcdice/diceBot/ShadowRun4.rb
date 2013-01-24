@@ -8,9 +8,23 @@ class ShadowRun4 < DiceBot
     @rerollNumber = 6;      #振り足しする出目
     @defaultSuccessTarget = ">=5";   #目標値が空欄の時の目標値
   end
+  def gameName
+    'シャドウラン第４版'
+  end
   
   def gameType
     "ShadowRun4"
+  end
+  
+  def prefixs
+     []
+  end
+  
+  def getHelpMessage
+    info = <<INFO_MESSAGE_TEXT
+個数振り足しロール(xRn)の閾値を6にセット、バラバラロール(xBn)の目標値を5以上にセットします。
+BコマンドとRコマンド時に、グリッチの表示を行います。
+INFO_MESSAGE_TEXT
   end
   
   def changeText(string)
@@ -21,17 +35,26 @@ class ShadowRun4 < DiceBot
     return string
   end
   
+  
   #シャドウラン4版用グリッチ判定
-  def getGrichText(n1_total, dice_cnt_total, successCount)
-    if( n1_total >= (dice_cnt_total / 2) )     # グリッチ！
-      if( successCount != 0 ) 
-        return ' ＞ グリッチ';
-      else
-        return ' ＞ クリティカルグリッチ';
-      end
+  def getGrichText(numberSpot1, dice_cnt_total, successCount)
+    debug("getGrichText numberSpot1", numberSpot1)
+    debug("dice_cnt_total", dice_cnt_total)
+    debug("successCount", successCount)
+    
+    dice_cnt_total_half = (1.0 * dice_cnt_total / 2)
+    debug("dice_cnt_total_half", dice_cnt_total_half)
+    
+    unless( numberSpot1 >= dice_cnt_total_half )
+      return ''
     end
     
-    return ''
+    # グリッチ！
+    if( successCount == 0 ) 
+      return ' ＞ クリティカルグリッチ';
+    end
+      
+    return ' ＞ グリッチ';
   end
   
 end
